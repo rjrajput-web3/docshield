@@ -214,6 +214,10 @@ function describeAnswer(a) {
   if (a.decision != null) parts.push("<strong>" + esc(a.decision) + "</strong>");
   if (a.choice != null) parts.push("<strong>" + esc(a.choice) + "</strong>");
   if (a.score != null) parts.push("<strong>" + esc(a.score) + "</strong>");
+  if (typeof a.noul === "number") {
+    parts.push("<strong>" + (a.noul >= 0.5 ? "Yes" : "No") + "</strong>");
+    parts.push(probText(a.noul) + " probability of yes");
+  }
   if (a.value != null && a.choice == null && a.score == null && a.decision == null) parts.push("<strong>" + esc(a.value) + "</strong>");
   const p = (typeof a.probability === "number") ? a.probability
     : (typeof a.yes_probability === "number") ? a.yes_probability
