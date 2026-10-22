@@ -1,0 +1,13 @@
+# Secrets — never commit the real key
+.env
+.env.local
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local scratch
+tmp/
+*.log
