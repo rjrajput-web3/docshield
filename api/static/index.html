@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocShield — Understand any document. Share it safely.</title>
+<style>
+  :root { --ink:#1a2332; --muted:#5b6b82; --line:#dbe3ee; --brand:#0b5fff; --bg:#f5f7fb; --card:#ffffff; --ok:#0a7d3b; --warn:#b25e00; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--ink); color:#fff; padding:28px 20px; }
+  header .wrap, main { max-width: 920px; margin: 0 auto; }
+  header h1 { margin:0 0 6px; font-size: 30px; }
+  header p { margin:0; color:#c4d2e8; font-size: 16px; }
+  main { padding: 22px 20px 48px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:18px; }
+  .card h2 { margin:0 0 8px; font-size:19px; }
+  .card p.hint { margin:0 0 12px; color:var(--muted); font-size:14px; }
+  textarea { width:100%; min-height:180px; padding:12px; border:1px solid var(--line); border-radius:8px; font:14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px; }
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:11px 18px; font-size:15px; cursor:pointer; }
+  button[disabled] { opacity:.55; cursor:wait; }
+  button.secondary { background:#e8eefb; color:var(--ink); }
+  .status { font-size:14px; color:var(--muted); }
+  .status.error { color:#b00020; }
+  .hidden { display:none; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  pre.doc { white-space:pre-wrap; word-break:break-word; background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:14px; font:13px/1.55 ui-monospace, Menlo, Consolas, monospace; max-height:380px; overflow:auto; }
+  .credits { margin-top:14px; padding-top:10px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--muted); }
+  .pill { display:inline-block; background:#eef3ff; border:1px solid var(--line); border-radius:999px; padding:2px 9px; font-size:12.5px; margin:2px 3px 2px 0; }
+  blockquote { margin:8px 0; padding:8px 12px; border-left:3px solid var(--brand); background:#f4f8ff; font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>DocShield</h1>
+    <p>Understand any document. Share it safely.</p>
+  </div>
+</header>
+<main>
+  <section class="card" id="input-card">
+    <h2>1. Your document</h2>
+    <p class="hint">Paste a contract, offer letter, invoice or agreement — or upload a PDF. DocShield explains it in plain words and makes it safe to share.</p>
+    <textarea id="doc-text" placeholder="Paste the document text here…"></textarea>
+    <div class="row">
+      <span class="status">No document handy? Try a sample:</span>
+      <span id="sample-buttons"></span>
+    </div>
+    <div class="row">
+      <label class="status">…or upload a PDF: <input type="file" id="doc-pdf" accept="application/pdf"></label>
+      <span class="status" id="pdf-name"></span>
+    </div>
+    <div class="row">
+      <button id="analyze-btn">Analyze document</button>
+      <span class="status" id="analyze-status"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="protect-card">
+    <h2>2. Protect — safe to share</h2>
+    <p class="hint">Personal information found in the document, and an anonymized copy you can share safely.</p>
+    <div id="protect-body"></div>
+    <div class="credits" id="protect-credits"></div>
+  </section>
+
+  <section class="card hidden" id="extract-card">
+    <h2>3. Extract — the key facts</h2>
+    <p class="hint">The facts that matter, pulled straight from the document's own words.</p>
+    <div id="extract-body"></div>
+    <div class="credits" id="extract-credits"></div>
+  </section>
+
+  <section class="card hidden" id="decide-card">
+    <h2>4. Decide — plain answers</h2>
+    <p class="hint">Straight answers about what this document means for you, with the probabilities behind them.</p>
+    <div id="decide-body"></div>
+    <div class="credits" id="decide-credits"></div>
+  </section>
+
+  <section class="card" id="verify-card">
+    <h2>5. Verify — check a claim</h2>
+    <p class="hint">Heard something about this document? Type the claim and DocShield checks it against the document's own words, with evidence.</p>
+    <div class="row" style="margin-top:0">
+      <input type="text" id="claim-input" placeholder="Example: I get paid $500 within 30 days of delivery" style="flex:1; min-width:260px; padding:11px; border:1px solid var(--line); border-radius:8px; font-size:14px;">
+      <button id="verify-btn" class="secondary">Check claim</button>
+    </div>
+    <div class="row"><span class="status" id="verify-status"></span></div>
+    <div id="verify-body"></div>
+    <div class="credits" id="verify-credits"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const state = { doc: null };  // {text} or {pdf_base64}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function currentDoc() {
+  if (state.doc && state.doc.pdf_base64) return { pdf_base64: state.doc.pdf_base64 };
+  const text = $("doc-text").value.trim();
+  return text ? { text } : null;
+}
+
+$("doc-pdf").addEventListener("change", (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result);
+    state.doc = { pdf_base64: dataUrl.split(",")[1] || "" };
+    $("pdf-name").textContent = "PDF loaded: " + file.name + " (it will be used instead of the pasted text)";
+  };
+  reader.readAsDataURL(file);
+});
+
+fetch("/api/samples")
+  .then((r) => r.json())
+  .then((samples) => {
+    const holder = $("sample-buttons");
+    samples.forEach((s) => {
+      const b = document.createElement("button");
+      b.className = "secondary";
+      b.textContent = s.title;
+      b.title = s.description || "";
+      b.addEventListener("click", () => {
+        state.doc = null;
+        $("doc-pdf").value = "";
+        $("pdf-name").textContent = "";
+        $("doc-text").value = s.text;
+        $("doc-text").focus();
+      });
+      holder.appendChild(b);
+    });
+  })
+  .catch(() => { /* samples are a convenience; the app works without them */ });
+
+async function callStep(path, payload) {
+  const resp = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.detail || ("Request failed (" + resp.status + ")"));
+  return data;
+}
+
+function creditsLine(el, step) {
+  const bits = [];
+  if (step.credits != null) bits.push("Clocked credits used: " + esc(step.credits));
+  if (step.cost_usd != null) bits.push("cost ≈ $" + esc(step.cost_usd));
+  bits.push("took " + esc(step.elapsed_s) + "s");
+  if (step.meta && step.meta.truncated_to) bits.push("document was shortened to " + step.meta.truncated_to + " characters for this step");
+  el.textContent = bits.join(" · ");
+}
+
+function renderProtect(step) {
+  const r = step.result || {};
+  const entities = Array.isArray(r.entities) ? r.entities : [];
+  const counts = r.counts || {};
+  let html = "";
+  const types = Object.keys(counts);
+  if (types.length) {
+    html += "<p>" + types.map((t) => '<span class="pill">' + esc(t) + ": " + esc(counts[t]) + "</span>").join("") + "</p>";
+  }
+  if (entities.length) {
+    html += "<table><tr><th>Type</th><th>Found value</th><th>Confidence</th></tr>" +
+      entities.map((e) => "<tr><td>" + esc(e.type) + "</td><td>" + esc(e.value) + "</td><td>" +
+        (e.confidence != null ? Math.round(Number(e.confidence) * 100) + "%" : "—") + "</td></tr>").join("") + "</table>";
+  } else {
+    html += "<p>No personal information was found in this document.</p>";
+  }
+  if (r.anonymized_text) {
+    html += "<h3>Safe-to-share copy</h3><pre class=\"doc\">" + esc(r.anonymized_text) + "</pre>";
+  }
+  $("protect-body").innerHTML = html;
+  $("protect-card").classList.remove("hidden");
+  creditsLine($("protect-credits"), step);
+}
+
+function renderExtract(step) {
+  const r = step.result || {};
+  const fields = r.fields || {};
+  const labels = r._labels || {};
+  const rows = Object.keys(labels).map((name) => {
+    const f = fields[name] || {};
+    let value = f.value;
+    if (Array.isArray(f.items) && f.items.length) {
+      value = f.items.map((it) => (it && typeof it === "object" ? (it.value ?? JSON.stringify(it)) : it)).join(", ");
+    }
+    if (value == null || value === "") value = "<em>Not stated</em>";
+    else value = esc(value);
+    const conf = f.confidence != null ? Math.round(Number(f.confidence) * 100) + "%" : "—";
+    return "<tr><td>" + esc(labels[name]) + "</td><td>" + value + "</td><td>" + conf + "</td></tr>";
+  }).join("");
+  $("extract-body").innerHTML = "<table><tr><th>Fact</th><th>From the document</th><th>Confidence</th></tr>" + rows + "</table>";
+  $("extract-card").classList.remove("hidden");
+  creditsLine($("extract-credits"), step);
+}
+
+function probText(p) { return Math.round(Number(p) * 100) + "%"; }
+
+function describeAnswer(a) {
+  if (a == null) return "<em>No answer returned.</em>";
+  if (typeof a !== "object") return "<strong>" + esc(a) + "</strong>";
+  const parts = [];
+  if (a.decision != null) parts.push("<strong>" + esc(a.decision) + "</strong>");
+  if (a.choice != null) parts.push("<strong>" + esc(a.choice) + "</strong>");
+  if (a.score != null) parts.push("<strong>" + esc(a.score) + "</strong>");
+  if (a.value != null && a.choice == null && a.score == null && a.decision == null) parts.push("<strong>" + esc(a.value) + "</strong>");
+  const p = (typeof a.probability === "number") ? a.probability
+    : (typeof a.yes_probability === "number") ? a.yes_probability
+    : (typeof a.yes === "number") ? a.yes : null;
+  if (p != null) parts.push(probText(p) + " probability of yes");
+  if (a.probabilities && typeof a.probabilities === "object") {
+    const top = Object.entries(a.probabilities)
+      .sort((x, y) => Number(y[1]) - Number(x[1])).slice(0, 3)
+      .map(([k, v]) => esc(k) + " " + probText(v)).join(" · ");
+    if (top) parts.push("(" + top + ")");
+  }
+  if (a.confidence != null) parts.push("confidence " + probText(a.confidence));
+  if (!parts.length) return "<code>" + esc(JSON.stringify(a)) + "</code>";
+  return parts.join(" — ");
+}
+
+function renderDecide(step) {
+  const answers = (step.result && step.result.answers) || {};
+  const titles = {
+    payment_obligation: "Is there a payment obligation?",
+    auto_renews: "Does it auto-renew?",
+    overall_risk: "Overall risk (1 = very safe, 10 = very risky)",
+    document_type: "What kind of document is this?",
+  };
+  let html = "";
+  for (const [name, title] of Object.entries(titles)) {
+    html += "<h3>" + esc(title) + "</h3><p>" + describeAnswer(answers[name]) + "</p>";
+  }
+  $("decide-body").innerHTML = html;
+  $("decide-card").classList.remove("hidden");
+  creditsLine($("decide-credits"), step);
+}
+
+function verdictOf(claim) {
+  const probs = claim.probabilities || claim.verdict_probabilities || {};
+  const pick = (keys) => {
+    for (const k of keys) {
+      if (typeof claim[k] === "number") return claim[k];
+      if (typeof probs[k] === "number") return probs[k];
+    }
+    return null;
+  };
+  const supported = pick(["supported", "support"]);
+  const contradicted = pick(["contradicted", "contradict"]);
+  const notStated = pick(["not_stated", "not stated", "unstated"]);
+  let label = claim.verdict || claim.label || null;
+  if (!label) {
+    const ranked = [["Supported", supported], ["Contradicted", contradicted], ["Not stated", notStated]]
+      .filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]);
+    label = ranked.length ? ranked[0][0] : "Checked";
+  }
+  return { label, supported, contradicted, notStated };
+}
+
+function renderVerify(step) {
+  const r = step.result || {};
+  let html = "";
+  if (r.grounded != null || r.ungrounded != null) {
+    html += "<p>";
+    if (r.grounded != null) html += '<span class="pill">Grounded: ' + probText(r.grounded) + "</span>";
+    if (r.ungrounded != null) html += '<span class="pill">Ungrounded: ' + probText(r.ungrounded) + "</span>";
+    if (r.verdict) html += '<span class="pill">Verdict: ' + esc(r.verdict) + "</span>";
+    html += "</p>";
+  }
+  const claims = Array.isArray(r.claims) ? r.claims : [];
+  if (!claims.length) {
+    html += "<p><code>" + esc(JSON.stringify(r)) + "</code></p>";
+  }
+  claims.forEach((c, i) => {
+    const v = verdictOf(c || {});
+    const text = (c && (c.claim || c.text || c.statement)) || ("Claim " + (i + 1));
+    html += "<h3>" + esc(text) + "</h3>";
+    html += "<p><strong>" + esc(v.label) + "</strong>";
+    const bits = [];
+    if (v.supported != null) bits.push("supported " + probText(v.supported));
+    if (v.contradicted != null) bits.push("contradicted " + probText(v.contradicted));
+    if (v.notStated != null) bits.push("not stated " + probText(v.notStated));
+    if (bits.length) html += " — " + esc(bits.join(" · "));
+    html += "</p>";
+    const evidence = (c && Array.isArray(c.evidence)) ? c.evidence : [];
+    evidence.forEach((e) => {
+      const quote = (e && (e.quote || e.text)) || "";
+      if (quote) html += "<blockquote>“" + esc(quote) + "”</blockquote>";
+    });
+  });
+  $("verify-body").innerHTML = html;
+  creditsLine($("verify-credits"), step);
+}
+
+$("verify-btn").addEventListener("click", async () => {
+  const doc = currentDoc();
+  const status = $("verify-status");
+  const claim = $("claim-input").value.trim();
+  if (!doc) { status.textContent = "Add a document above first."; status.className = "status error"; return; }
+  if (!claim) { status.textContent = "Type a claim to check."; status.className = "status error"; return; }
+  status.className = "status";
+  const btn = $("verify-btn");
+  btn.disabled = true;
+  status.textContent = "Checking the claim against the document…";
+  try {
+    renderVerify(await callStep("/api/verify", { ...doc, claim }));
+    status.textContent = "Done.";
+  } catch (err) {
+    status.textContent = "Something went wrong: " + err.message;
+    status.className = "status error";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("analyze-btn").addEventListener("click", async () => {
+  const doc = currentDoc();
+  const status = $("analyze-status");
+  if (!doc) { status.textContent = "Please paste some document text or upload a PDF first."; status.className = "status error"; return; }
+  status.className = "status";
+  const btn = $("analyze-btn");
+  btn.disabled = true;
+  try {
+    status.textContent = "Step 1 of 3: protecting personal information…";
+    renderProtect(await callStep("/api/protect", doc));
+    status.textContent = "Step 2 of 3: extracting the key facts…";
+    renderExtract(await callStep("/api/extract", doc));
+    status.textContent = "Step 3 of 3: answering the plain questions…";
+    renderDecide(await callStep("/api/decide", doc));
+    status.textContent = "Done.";
+  } catch (err) {
+    status.textContent = "Something went wrong: " + err.message;
+    status.className = "status error";
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
