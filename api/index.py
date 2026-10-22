@@ -140,6 +140,13 @@ DECIDE_QUESTIONS = {
         "type": "score",
         "min": 1,
         "max": 10,
+        "criteria": [
+            "1-2: Very safe - standard, balanced terms with no unusual obligations.",
+            "3-4: Low risk - mostly standard terms with only minor one-sided points.",
+            "5-6: Moderate risk - some notable obligations, penalties or one-sided terms.",
+            "7-8: High risk - heavy obligations, broad liability or harsh penalties.",
+            "9-10: Very risky - extremely one-sided or dangerous terms for the signer.",
+        ],
         "instructions": "Rate the overall risk of this document for the person who signs or agrees to it: 1 means very safe and standard, 10 means very risky or one-sided.",
     },
     "document_type": {
