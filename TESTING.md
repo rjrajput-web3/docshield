@@ -83,3 +83,43 @@ unconfirmed, that a timed-out request was processed server-side).
    supported — the agreement requires 15 days' notice).
 2. Note the `X-Clocked-Credits` value shown in each step's footer and
    confirm the account balance moved by roughly that amount.
+
+## Deployed verification — DONE (October 22, 2026)
+
+Deployed at **https://docshield-nine.vercel.app** (Vercel, from this
+repo). One deployment lesson first: with Vercel's auto-detected FastAPI
+framework preset, every route returned the framework's own 404 — the
+project's `vercel.json` rewrites were being applied to the rewritten
+destination path. Switching the Framework Preset to **Other** (no other
+change) fixed routing completely.
+
+Full flow on Sample 1 (freelance services agreement), run live on the
+production URL:
+
+| Step | Result | Credits | Time |
+|---|---|---|---|
+| Protect (`/pii`) | PASS — 10 entities (address 2, person 3, email 2, phone 2, bank_account 1), all 100% confidence, anonymized copy produced | 15 | 0.86 s |
+| Extract (`/extract`) | PASS — all six facts (parties, date, $500 amount, 30-day payment timing, 15-day notice, 6-month term) with confidence | 5 | 0.35 s |
+| Decide (`/decide`) | PASS — payment obligation Yes (p≈0.997), auto-renews Yes (p≈0.996), overall risk score 1.35, document type "Freelance or services agreement" (100%) | 4 | 0.47 s |
+| Verify (`/grounding`) claim A "I get paid $500 within 30 days of delivery." | PASS — supported 99%, grounded | 3 | 0.33 s |
+| Verify (`/grounding`) claim B "I can cancel at any time without any notice." | PASS — contradicted 98% (agreement requires 15 days' notice), as expected | 4 | 0.31 s |
+
+Total for the final verified run: 31 credits. Across all testing
+(deploys, retries, fixes) roughly 110 of the 20,000 account credits were
+spent.
+
+### Bugs the live API caught (and the fixes)
+
+1. **Decide score question rejected (HTTP 422):** "questions.overall_risk.criteria
+   must be a list of 2 to 10 levels." → Added a five-band criteria list
+   to the score question.
+2. **Decide choice question rejected (HTTP 422):** "questions.document_type.criteria
+   must map at least two options to descriptions." → Added a criteria map
+   for all six options, plus true/false criteria for both `noul`
+   questions (the format shown in the official SDK examples). After this,
+   Decide returned all four answers.
+3. **UI rendered `noul` answers as raw JSON** (`{"type":"noul","noul":0.9966}`)
+   → the page's answer renderer now turns a `noul` probability into
+   "Yes/No — N% probability of yes".
+
+No credits were charged for any of the rejected (422) calls.
