@@ -130,10 +130,18 @@ def extract(doc: DocIn) -> StepOut:
 DECIDE_QUESTIONS = {
     "payment_obligation": {
         "type": "noul",
+        "criteria": {
+            "true": "The document explicitly requires one party to pay money to the other - a fee, salary, rent, price or similar payment obligation.",
+            "false": "The document states no payment obligation, or payments are only hypothetical, conditional on something unstated, or someone else's duty.",
+        },
         "instructions": "Does this document require one party to pay money to the other party?",
     },
     "auto_renews": {
         "type": "noul",
+        "criteria": {
+            "true": "The document explicitly says the agreement renews or extends automatically at the end of its term unless a party gives notice or cancels first.",
+            "false": "The document has a fixed end with no automatic renewal, or it renews only if both parties agree in writing.",
+        },
         "instructions": "Does the agreement renew automatically at the end of its term unless someone cancels it first?",
     },
     "overall_risk": {
@@ -159,6 +167,14 @@ DECIDE_QUESTIONS = {
             "Loan agreement",
             "Other document",
         ],
+        "criteria": {
+            "Freelance or services agreement": "One party provides services to another for payment - consulting, design, development or other freelance or contractor work.",
+            "Rental or lease agreement": "Property - a home, room, office or equipment - is rented for a period in exchange for rent payments.",
+            "Employment offer letter": "A job offer or employment terms - role, salary, start date - from an employer to a new employee.",
+            "Invoice or payment document": "A bill or payment request listing amounts owed for goods or services already provided.",
+            "Loan agreement": "Money is lent and must be repaid, usually with interest, under stated terms.",
+            "Other document": "Any document that does not clearly fit any of the other categories.",
+        },
         "instructions": "Which category best describes this document?",
     },
 }
